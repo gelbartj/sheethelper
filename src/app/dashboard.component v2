@@ -1,0 +1,312 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+
+import { ExcelTable } from './hero';
+//import { ResultComponent } from './result.component';
+//import { HeroService } from './hero.service';
+
+@Component({
+  selector: 'my-dashboard',
+  templateUrl: 'app/dashboard.component.html',
+  styleUrls: ['app/dashboard.component.css']
+  //directives: [ResultComponent]
+})
+export class DashboardComponent {
+	
+  showResult = false;
+  showSelector = false;
+
+  sheet1: ExcelTable = new ExcelTable();
+  sheet2: ExcelTable = new ExcelTable();
+  result: ExcelTable = new ExcelTable();
+  
+  showSheet1Entry = true;
+  showSheet1Table = false;
+  showSheet2Entry = true;
+  showSheet2Table = false;
+  
+  showDouble = true;
+  
+  matchType = 2;
+  resultType = 1;
+  
+  //heroes: Hero[] = [];
+
+    changeMatch(matchNum: number) {
+	  this.matchType = matchNum;
+	  this.showDouble = !(this.showDouble);
+	  this.updateResult();
+    }
+	
+	changeResultType(resultType: number) {
+	  this.resultType = resultType;
+	  this.updateResult();
+    }
+  
+    updateResult(sheet?: ExcelTable,calcType: number = this.matchType) { // question marks `sheet` as optional
+	  if (sheet) { sheet.updateData(); }
+	  if (this.sheet2.rawData && this.sheet1.rawData) {
+		this.showSelector = true;
+		if (this.resultType == 3) {
+			this.result = this.calcMatches(this.sheet2,this.sheet1,calcType);
+		}
+		else {
+			this.result = this.calcMatches(this.sheet1,this.sheet2,calcType);
+		}
+		this.showResult = true;
+	  }	  
+    }
+  
+    toggleHeader(sheet: ExcelTable) {
+	  sheet.hasHeader = !(sheet.hasHeader);
+	  this.updateResult();
+    }
+  
+    updateCol(sheet: ExcelTable,newCol: number,colId: number) {
+	  if (colId == 1) {
+		//sheet.selectedCol1 = +(<HTMLSelectElement>event.target).value;
+		sheet.selectedCol1 = newCol;
+	  }
+	  else if (colId == 2) {
+		  //sheet.selectedCol2 = +(<HTMLSelectElement>event.target).value;
+		  sheet.selectedCol2 = newCol;
+	  }
+	  this.updateResult();
+    }
+  
+    hideMe(sheetNum: number,event?: Event) {
+	  if (event) { 
+		if (!(<HTMLSelectElement>event.target).value) { return; }
+	  }
+		  if (sheetNum == 1) {
+			  this.showSheet1Entry = !(this.showSheet1Entry);
+			  this.showSheet1Table = !(this.showSheet1Table);
+		  }
+		  if (sheetNum == 2) {
+			  this.showSheet2Entry = !(this.showSheet2Entry);
+			  this.showSheet2Table = !(this.showSheet2Table);
+		  }
+	}	  
+  
+	 nameStrip(inputName: string) {
+		 //console.log(inputName);
+		  var stripped = inputName.trim().replace(/['",-.:;_`~“”‘’\s]/g,""); // remove all punctuation and spaces
+		  //var finalString = stripped.replace(/\s{2,}/g," ");
+		  return stripped.toUpperCase();
+	}
+  
+	combineNames(firstNames: string[], lastNames: string[]): string[] {
+	  // Combine first and last names, stripping out punctuation, extra spaces, capitalization, etc.
+	  let resultNames: string[] = [];
+	  if (firstNames.length == lastNames.length) {
+		  for (var i=0; i<firstNames.length; i++) {
+			  resultNames.push(this.nameStrip(firstNames[i]) + " " + this.nameStrip(lastNames[i]));
+		  }
+		  return resultNames;
+	  }
+	  else {
+		  throw new RangeError();
+	  }
+	}
+	
+	makeHeader(source: ExcelTable,target: ExcelTable,matchType: number) {
+		let resultTable = new ExcelTable();
+		let addedTargetHeader: string[] = [];
+		let emptyTargetHeader: string[] = [];
+		if (target.hasHeader) {
+			if (matchType == 1) {
+				for (var arrayCounter = 0; arrayCounter < target.formatData[0].length; arrayCounter++) {
+					if (arrayCounter == target.selectedCol1) { continue; } // skip matched column
+					addedTargetHeader.push(target.formatData[0][arrayCounter]);
+				}
+			}
+			else { 
+				for (var arrayCounter = 0; arrayCounter < target.formatData[0].length; arrayCounter++) {
+					if (arrayCounter == target.selectedCol1 || arrayCounter == target.selectedCol2) { continue; } // skip matched column
+					addedTargetHeader.push(target.formatData[0][arrayCounter]);
+				} 
+			}
+		}
+		
+		if (source.hasHeader || target.hasHeader) { 
+			resultTable.hasHeader = true;
+			if (source.hasHeader && target.hasHeader) {
+				resultTable.formatData.push(source.formatData[0].concat(addedTargetHeader));
+			}
+			else {
+				if (matchType == 1) {
+					emptyTargetHeader = Array.apply(null, Array(target.formatData[0].length - 1)).map(function (x: number,z: number) {var y = z + 1; return "Column " + y;}); // subtract one to account for removal of matched column
+				}
+				else {
+					emptyTargetHeader = Array.apply(null, Array(target.formatData[0].length - 2)).map(function (x: number,z: number) {var y = z + 1; return "Column " + y;});
+				}
+				let emptySourceHeader = Array.apply(null, Array(target.formatData[0].length)).map(function (x: number,z: number) {var w = z + 1; return "Column " + w});
+				if (source.hasHeader) { resultTable.formatData.push(source.formatData[0].concat(emptyTargetHeader)); }
+				if (target.hasHeader) { resultTable.formatData.push(emptySourceHeader.concat(addedTargetHeader)); }
+			}
+		}
+		else {
+			resultTable.hasHeader = false;
+		}
+		return resultTable;
+	}
+	
+	findDupes(source: ExcelTable, target: ExcelTable, matchType: number=1) {
+		// Create array of [source row, matched target row, source duplicate?, target duplicate? ]
+		// Start by saving existing order
+		// Then sort by selectedCol1
+		let idAndCol: string[] = [];
+		let xArray: string[] = [];
+		let counter = "0";
+		let column = source.getCol(source.selectedCol1);
+		let sourceFlag = source.hasHeader;
+		for (let x of column) {
+			if (sourceFlag) {
+				counter = (parseInt(counter) + 1).toString();
+				sourceFlag = !sourceFlag;
+				continue;
+			}
+			xArray = [counter];
+			idAndCol.push((xArray.concat(x)).concat(["0"]));
+			counter = (parseInt(counter) + 1).toString();
+			console.log("In loop idandcol: " + idAndCol);
+		}
+		idAndCol.sort(function(a: any, b: any) {
+			a = a[1];
+			b = b[1];
+			return a < b ? -1 : (a > b ? 1 : 0);
+		});
+		for (var y=0; y < idAndCol.length - 1; y++) {
+			if (idAndCol[y][1] == idAndCol[y+1][1]) {
+				idAndCol[y][2]="DUPE";
+				idAndCol[y+1][2]="DUPE";
+			}
+		}
+		return idAndCol;
+	}
+  
+	calcMatches(source: ExcelTable,target: ExcelTable,matchType: number,resultType: number=this.resultType) {
+	  /* resultType options: 1 for combined table, 2 for all source rows, 3 for all target rows */
+	  let resultTable = new ExcelTable();
+	  //let targetResultTable = new ExcelTable();
+	  let matchFound = false;
+	  //let targetsMatched: string[] = []; // list of matched target row numbers
+	  //if (target.hasHeader) { targetsMatched.push("0"); }
+	  let sourceArray = [];
+	  let targetArray = [];
+	  
+	  if (matchType == 2) {
+		sourceArray = this.combineNames(source.getCol(source.selectedCol1),source.getCol(source.selectedCol2));
+		targetArray = this.combineNames(target.getCol(target.selectedCol1),target.getCol(target.selectedCol2));
+	  }
+	  
+	  else { 
+		sourceArray = source.formatData;
+		targetArray = target.formatData; 
+	  }
+	  
+	  for (var i=0;i<sourceArray.length;i++) { // i is a row counter
+		matchFound = false;
+		for (var j=0;j<targetArray.length;j++) { // j is a row counter
+			if (i == 0 && j == 0) { //first loop
+				// Show header row even if column names don't match
+				resultTable = this.makeHeader(source,target,matchType);
+				//targetResultTable = this.makeHeader(target,source,1);
+				if (source.hasHeader || target.hasHeader) { 
+					matchFound = true;
+					break; 
+				}
+			}
+			if (source.formatData[i][source.selectedCol1] == target.formatData[j][target.selectedCol1]) { // match
+				let jPrime: string[] = [];
+				//let iPrime: string[] = [];
+				for (var arrayCounter = 0; arrayCounter < target.formatData[j].length; arrayCounter++) {
+					if (arrayCounter == target.selectedCol1) { continue; } // skip matched column
+					jPrime.push(target.formatData[j][arrayCounter]);
+				}
+				/*if (resultType == 3) {
+					targetsMatched.push(j.toString());
+					for (var arrayCounter = 0; arrayCounter < source.formatData[i].length; arrayCounter++) {
+						if (arrayCounter == source.selectedCol1) { continue; } // skip matched column
+						iPrime.push(source.formatData[i][arrayCounter]);
+					}
+					targetResultTable.formatData.push(target.formatData[j].concat(iPrime));
+				}*/
+				resultTable.formatData.push(source.formatData[i].concat(jPrime));
+				matchFound = true;
+				break; // prevent duplicates (only allow one source row)
+			} 				
+		}
+		
+		if (resultType == 2 && matchFound == false){
+			resultTable.formatData.push(source.formatData[i].concat(["NO MATCH"]));	
+		}
+	  }
+			/*if (resultType == 3){
+				for (var targetRow=0; targetRow<target.formatData.length; targetRow++) {
+					if (targetsMatched.indexOf(targetRow) == -1) {
+						targetResultTable.formatData.push(target.formatData[targetRow].concat(["NO MATCH"]));
+					}
+				}
+				
+			}*/
+		
+		
+		
+	  /*else if (matchType==2) {
+		// Show header row even if column names don't match
+		resultTable = this.makeHeader(source,target,2);
+		//targetResultTable = this.makeHeader(target,source,2);
+		let sourceFull = this.combineNames(source.getCol(source.selectedCol1),source.getCol(source.selectedCol2));
+		let targetFull = this.combineNames(target.getCol(target.selectedCol1),target.getCol(target.selectedCol2));
+		for (var i=0; i<sourceFull.length; i++) {
+			matchFound = false;
+		    for (var j=0; j<targetFull.length; j++) {
+				if (i==0 && j==0) { 
+					if (source.hasHeader || target.hasHeader) { 
+						matchFound = true;
+						break; /* skip header row */ 
+					} 
+				}
+				if (sourceFull[i] == targetFull[j]) { //match
+					let jPrime: string[] = [];
+					//let iPrime: string[] = [];
+					for (var arrayCounter = 0; arrayCounter < target.formatData[j].length; arrayCounter++) {
+						if (arrayCounter == target.selectedCol1 || arrayCounter == target.selectedCol2) { 
+						continue; // skip matched columns
+						}
+						jPrime.push(target.formatData[j][arrayCounter]);
+					}
+					/*if (resultType == 3) {
+						targetsMatched.push(j.toString());
+						for (var arrayCounter = 0; arrayCounter < source.formatData[i].length; arrayCounter++) {
+							if (arrayCounter == source.selectedCol1 || arrayCounter == source.selectedCol2) { 
+								continue; // skip matched column
+							} 
+							iPrime.push(source.formatData[i][arrayCounter]);
+						}
+						targetResultTable.formatData.push(target.formatData[j].concat(iPrime));
+					}*/
+					let combinedRowDouble = source.formatData[i].concat(jPrime);
+					//combinedRowDouble = combinedRowDouble.concat(secondFull[j]); //for testing only
+					resultTable.formatData.push(combinedRowDouble);
+					matchFound = true;
+					break; //prevent duplicates
+				}
+			}
+			if (resultType == 2 && matchFound == false){
+				resultTable.formatData.push(source.formatData[i].concat(["NO MATCH"]));	
+			}
+		}
+		/*if (resultType == 3){
+			for (var targetRow=0; targetRow<target.formatData.length;targetRow++) {
+				if (targetsMatched.indexOf(targetRow) == -1) {
+					targetResultTable.formatData.push(target.formatData[targetRow].concat(["NO MATCH"]));
+				}
+			}	
+		}*/
+	  }*/
+	/*if (resultType == 3) { return targetResultTable; } */
+	return resultTable; 
+    }
+}

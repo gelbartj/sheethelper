@@ -1,0 +1,95 @@
+<div class="header">
+<h1 style="font-variant:small-caps;">SheetHelper.com</h1>
+<span style="font-size:1.2em;color:#666;font-weight:100;font-family:Georgia, serif;font-style:italic;">Check for matches between two spreadsheets in seconds</span>
+</div>
+
+<div class="content">
+	<div class="blocks" style="margin-bottom:1.5em;">
+		<h3>Spreadsheet 1</h3>
+		<label><input type="checkbox" [(ngModel)]="sheet1.hasHeader" (change)="toggleHeader(sheet1)">Has header row?</label>
+		<br>
+		<div class="wrappers">
+			<textarea #data1 [class.hide]="!showSheet1Entry" wrap="off" [(ngModel)]="sheet1.rawData" 
+			(change)="updateResult(sheet1)" placeholder="Paste 1st spreadsheet here" onClick="this.select()" (blur)="hideMe(1)">
+			Paste Excel data
+			here
+			</textarea>
+			<table *ngIf="sheet1.rawData" [class.hide]="!showSheet1Table" class="sources" (click)="hideMe(1,data1)">
+			<tr *ngFor="let row of sheet1.formatData; let i7 = index;" [class.special]="i7 == 0 && sheet1.hasHeader">
+			<td *ngFor="let cell of row">{{ cell }}</td>
+			</tr>
+			</table>
+		</div>
+	</div>
+<div class="blocks">
+<h3>Spreadsheet 2</h3>
+<label><input type="checkbox" [(ngModel)]="sheet2.hasHeader" (change)="toggleHeader(sheet2)">Has header row?</label>
+<br>
+<div class="wrappers">
+<textarea #data2 [class.hide]="!showSheet2Entry" wrap="off" [(ngModel)]="sheet2.rawData" 
+(change)="updateResult(sheet2)" placeholder="Paste 2nd spreadsheet here" onClick="this.select()" (blur)="hideMe(2)">
+Paste Excel data
+here
+</textarea>
+<table *ngIf="sheet2.rawData" [class.hide]="!showSheet2Table" class="sources" (click)="hideMe(2,data2)">
+<tr *ngFor="let row2 of sheet2.formatData; let i6 = index;" [class.special]="i6 == 0 && sheet2.hasHeader">
+<td *ngFor="let cell2 of row2">{{ cell2 }}</td>
+</tr>
+</table>
+</div>
+</div>
+
+<div *ngIf="showSelector" class="secondBlock">
+
+<div class="options">Options</div>
+
+<div>
+<em>Select match type</em><br>
+    <input type="radio" name="matchType" checked="checked" value=2 (change)="changeMatch(2)" [disabled]="sheet1.formatData.length == 1 && sheet2.formatData.length == 1"> First name + last name match<br/>
+	<input type="radio" name="matchType" value=1 (change)="changeMatch(1)"> Single column<br/>
+	<br>
+</div>
+<div>
+<em>Select the columns you'd like to compare</em><br>
+Spreadsheet 1 column(s):
+<select [(ngModel)]="sheet1.selectedCol1" #sheet1col1 (change)="updateCol(sheet1,sheet1col1.value, 1)">
+<option *ngFor="let header of sheet1.formatData[0]; let i = index;" value="{{ i }}">{{ header }}</option>
+</select>
+<span *ngIf="showDouble"> + </span>
+<select *ngIf="showDouble" [(ngModel)]="sheet1.selectedCol2" #sheet1col2 (change)="updateCol(sheet1,sheet1col2.value, 2)">
+<option *ngFor="let header4 of sheet1.formatData[0]; let i2 = index;" value="{{ i2 }}">{{ header4 }}</option>
+</select>
+<br>
+Spreadsheet 2 column(s):
+<select [(ngModel)]="sheet2.selectedCol1" #sheet2col1 (change)="updateCol(sheet2,sheet2col1.value, 1)">
+<option *ngFor="let header2 of sheet2.formatData[0]; let i3 = index;" value="{{ i3 }}">{{ header2 }}</option>
+</select>
+<span *ngIf="showDouble"> + </span>
+<select *ngIf="showDouble" [(ngModel)]="sheet2.selectedCol2" #sheet2col2 (change)="updateCol(sheet2,sheet2col2.value, 2)">
+<option *ngFor="let header3 of sheet2.formatData[0]; let i4 = index;" value="{{ i4 }}">{{ header3 }}</option>
+</select>
+</div>
+</div>
+<br>
+<div *ngIf="showResult">
+Desired result type:
+<select [(ngModel)]="resultType" #resultPicker (change)="changeResultType(resultPicker.value)">
+<option value=1>Show matched rows only</option>
+<option value=2>Show all Spreadsheet 1 rows, including non-matches</option>
+<option value=3>Show all Spreadsheet 2 rows, including non-matches</option>
+</select>
+
+<label><h2>Result</h2></label>
+<button (click)="downloadFile('matches.csv',result.formatData)">Download as CSV</button>
+<label><input type="checkbox" checked="checked" [(ngModel)]="removeMatchedColumns" (change)="toggleHideColumns()">Remove matched columns?</label>
+
+<div class="resultwrapper">
+<table onClick="selectElementContents(this)">
+<tr *ngFor="let row3 of result.formatData; let i5 = index;" [class.special]="i5 == 0 && result.hasHeader">
+<td *ngFor="let cell3 of row3">{{ cell3 }}</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="footer">&copy; Copyright 2016 Jonathan Gelbart</div>
