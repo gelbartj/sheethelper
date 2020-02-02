@@ -9,4 +9,4 @@ This was my first (and only) Angular project. I completed it in July of 2016, ju
 The original url is now defunct, but the tool is still available [here](https://sheet-helper-d46a1.web.app/).
 
 Screenshot:
-![SheetHelper screenshot](https://github.com/gelbartj/sheethelper/screenshot.png) "SheetHelper screenshot")
+![SheetHelper screenshot](https://github.com/gelbartj/sheethelper/blob/master/screenshot.png) "SheetHelper screenshot")
